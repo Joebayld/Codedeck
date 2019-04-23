@@ -79,6 +79,61 @@ public class StreamDeckKey {
         
     }
     
+  
+    public func setImage(imageBuffer: [UInt8]) {
+        let IMAGE_SIZE = 72
+
+        func flipCoordinate(x: Int, y: Int) -> Int {
+            return (3 * IMAGE_SIZE * y) + ((IMAGE_SIZE - 1 - x) * 3)
+        }
+ 
+        var pixels = [UInt8]()
+        
+        for _ in 0..<40 {
+            pixels.append(contentsOf: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+            pixels.append(contentsOf: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        }
+
+        for r in 0..<IMAGE_SIZE {
+            var row = [UInt8]()
+            pixels.append(contentsOf: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+            
+            for c in 0..<IMAGE_SIZE {
+                let cr = imageBuffer[flipCoordinate(x: r, y: c) + 2]
+                let cg = imageBuffer[flipCoordinate(x: r, y: c) + 1]
+                let cb = imageBuffer[flipCoordinate(x: r, y: c)]
+                row.append(contentsOf: [cr, cg, cb])
+            }
+            pixels.append(contentsOf: row)
+            pixels.append(contentsOf: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        }
+        
+        for _ in 0..<40 {
+            pixels.append(contentsOf: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+            pixels.append(contentsOf: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        }
+        
+        let pageOnePacketSize = streamDeck.product.pagePacketSize - 70
+        let pageTwoPacketSize = streamDeck.product.pagePacketSize - 16
+        let iconBytes = 80 * 80 * 3
+        
+        let firstPage = streamDeck.dataPageOne(keyIndex: keyIndex, data: Data(pixels[0..<pageOnePacketSize]))
+        streamDeck.write(data: firstPage)
+
+        
+        var count = 0
+        var i = pageOnePacketSize
+        while i < iconBytes {
+            count += 1
+            let buf = pixels[i..<(i + min(pageTwoPacketSize, iconBytes - i))]
+            let secondPage = streamDeck.dataPageTwo(keyIndex: keyIndex, bufIndex: count, data: Data(buf))
+            streamDeck.write(data: secondPage)
+            i += pageTwoPacketSize
+        }
+
+    }
+    
+    
     public func setImage(withActions actions: (CGContext, CGSize) -> Void) {
         let contextSize = CGSize(width: streamDeck.product.iconSize, height: streamDeck.product.iconSize)
         
